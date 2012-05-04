@@ -5,6 +5,7 @@ use strict;
 
 use WWW::Mechanize;
 use Class::Date qw(date);
+use File::Slurp;
 
 =head1 NAME
 
@@ -16,14 +17,14 @@ Version 0.01
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 
 =head1 SYNOPSIS
 
 There is a great iPhone weight tracking app
-http://tapbots.com/software/weightbot/. It backups it's data to the site
-https://weightbot.com/ where everybody who uses that app can login and
+http://tapbots.com/software/weightbot/. It backups its data to the site
+https://weightbot.com/ where everyone using that app can login and
 download the file with the records.
 
 This module gets that data and shows it as a pretty data structure.
@@ -34,18 +35,40 @@ This module gets that data and shows it as a pretty data structure.
     my $wi = Weightbot::API->new({
         email    => 'user@example.com',
         password => '******',
-    }); 
+    });
 
     say $wi->raw_data;
     say Dumper $wi->data;
 
-The object does not send requests to site until data is needed to be
-retrieved. The first executed method data() or raw_data() will get data from
-the site and the data will be stored in the object, so you can use raw_data()
-and data() many times without unnecessary requests.
+The object does not send requests to site until data needs to be
+retrieved. The first invocation of either data() or raw_data() methods will
+get data from the site and it will be stored in the object, so you can
+use raw_data() and data() many times without unnecessary requests to the site.
 
 Site https://weightbot.com/ does not have real API, this module behaves as a
 browser.
+
+=head2 NOTES
+
+While debugging your programme that uses this module it is not a great idea to
+send requests to weightbot.com on every test run. This module can cache data
+to file. The module will read data from the cache file if the file exists or
+will download data and save it to the file if there is no cache file.
+
+To use this feature you should create Weightbot::API object with:
+
+    my $wi = Weightbot::API->new({
+        email    => 'user@example.com',
+        password => '******',
+        use_cache_file => 1,
+        cache_file     => '/storage/weightbot.raw',     # optional
+    });
+
+The default value for 'cache_file' is '/tmp/weightbot.data'.
+
+So when you debug your programme you can specify 'use_cache_file'. Then on
+first run the data will be downloaded from weightbot.com and saved to file and
+all other runs will use data from the file without asking weightbot.com.
 
 =head1 SUBROUTINES/METHODS
 
@@ -58,7 +81,7 @@ Optionally you can specify 'site' with some custom site url (default is
     my $wi = Weightbot::API->new({
         email    => 'user@example.com',
         password => '******',
-    }); 
+    });
 
 =cut
 
@@ -85,8 +108,8 @@ Here is an example:
     2008-12-06, 81.9, 180.6
     2008-12-08, 82.6, 182.1
 
-You can run this method many times but only the first run will get data from
-the site.
+Any subsequent call to this method will not result in actual data retrieval as
+the data is cached within the object.
 
 =cut
 
@@ -102,7 +125,7 @@ sub raw_data {
 
 Returns the weight data in a structure. In that data some dates can be
 skipped. In this structure all the dates are present, but if there is no
-weight for that date the empty sting is used. 
+weight for that date the empty sting is used.
 
 An example for the data show in raw_data() method:
 
@@ -139,6 +162,9 @@ An example for the data show in raw_data() method:
               }
             ];
 
+Any subsequent call to this method will not result in actual data retrieval as
+the data is cached within the object.
+
 =cut
 
 sub data {
@@ -169,23 +195,23 @@ sub data {
                 while ($d != $expected_date) {
                     push @$result, {
                         date => "$expected_date",
-                        kg => '', 
-                        lb => '', 
-                        n => $n, 
-                    };  
+                        kg => '',
+                        lb => '',
+                        n => $n,
+                    };
                     $expected_date += '1D';
                     $n++;
                 }
 
-            }   
-            
+            }
+
             push @$result, {
                 date => "$d",
-                kg => $k, 
-                lb => $p, 
-                n => $n, 
-            };  
-            $prev_date = $d; 
+                kg => $k,
+                lb => $p,
+                n => $n,
+            };
+            $prev_date = $d;
             $n++;
         }
         $self->{data} = $result;
@@ -206,6 +232,19 @@ for the data, witch is stored in the object.
 
 sub _get_data_if_needed {
     my ($self) = @_;
+
+    my $cache_filename;
+
+    if ($self->{use_cache_file}) {
+        $cache_filename
+            = defined($self->{cache_file})
+            ? $self->{cache_file}
+            : '/tmp/weightbot.data';
+
+        if (-e $cache_filename) {
+            $self->{raw_data} = read_file($cache_filename);
+        }
+    }
 
     unless ($self->{raw_data}) {
         my $mech = WWW::Mechanize->new(
@@ -232,11 +271,19 @@ sub _get_data_if_needed {
 
         $self->{raw_data} = $mech->content;
     }
+
+    if ($self->{use_cache_file}) {
+        write_file($cache_filename, $self->{raw_data});
+    }
 }
 
 =head1 AUTHOR
 
 Ivan Bessarabov, C<< <ivan@bessarabov.ru> >>
+
+=head1 CONTRIBUTORS
+
+Evgeniy Kosov C<< <evgeniy@kosov.su> >>
 
 =head1 BUGS
 
@@ -245,7 +292,7 @@ the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Weightbot-
 automatically be notified of progress on your bug as I make changes.
 You can also submit a bug or a feature request on GitHub.
 
-=head1 SOURCE CODE 
+=head1 SOURCE CODE
 
 The source code for this module is hosted on GitHub http://github.com/bessarabov/Weightbot-API
 

@@ -6,8 +6,8 @@ VERSION
 
 SYNOPSIS
     There is a great iPhone weight tracking app
-    http://tapbots.com/software/weightbot/. It backups it's data to the site
-    https://weightbot.com/ where everybody who uses that app can login and
+    http://tapbots.com/software/weightbot/. It backups its data to the site
+    https://weightbot.com/ where everyone using that app can login and
     download the file with the records.
 
     This module gets that data and shows it as a pretty data structure.
@@ -18,18 +18,42 @@ SYNOPSIS
         my $wi = Weightbot::API->new({
             email    => 'user@example.com',
             password => '******',
-        }); 
+        });
 
         say $wi->raw_data;
         say Dumper $wi->data;
 
-    The object does not send requests to site until data is needed to be
-    retrieved. The first executed method data() or raw_data() will get data
-    from the site and the data will be stored in the object, so you can use
-    raw_data() and data() many times without unnecessary requests.
+    The object does not send requests to site until data needs to be
+    retrieved. The first invocation of either data() or raw_data() methods
+    will get data from the site and it will be stored in the object, so you
+    can use raw_data() and data() many times without unnecessary requests to
+    the site.
 
     Site https://weightbot.com/ does not have real API, this module behaves
     as a browser.
+
+  NOTES
+    While debugging your programme that uses this module it is not a great
+    idea to send requests to weightbot.com on every test run. This module
+    can cache data to file. The module will read data from the cache file if
+    the file exists or will download data and save it to the file if there
+    is no cache file.
+
+    To use this feature you should create Weightbot::API object with:
+
+        my $wi = Weightbot::API->new({
+            email    => 'user@example.com',
+            password => '******',
+            use_cache_file => 1,
+            cache_file     => '/storage/weightbot.raw',     # optional
+        });
+
+    The default value for 'cache_file' is '/tmp/weightbot.data'.
+
+    So when you debug your programme you can specify 'use_cache_file'. Then
+    on first run the data will be downloaded from weightbot.com and saved to
+    file and all other runs will use data from the file without asking
+    weightbot.com.
 
 SUBROUTINES/METHODS
   new
@@ -41,7 +65,7 @@ SUBROUTINES/METHODS
         my $wi = Weightbot::API->new({
             email    => 'user@example.com',
             password => '******',
-        }); 
+        });
 
   raw_data
     Returns the weight records in the format as they are stored on the site.
@@ -53,8 +77,8 @@ SUBROUTINES/METHODS
         2008-12-06, 81.9, 180.6
         2008-12-08, 82.6, 182.1
 
-    You can run this method many times but only the first run will get data
-    from the site.
+    Any subsequent call to this method will not result in actual data
+    retrieval as the data is cached within the object.
 
   data
     Returns the weight data in a structure. In that data some dates can be
@@ -96,8 +120,14 @@ SUBROUTINES/METHODS
                   }
                 ];
 
+    Any subsequent call to this method will not result in actual data
+    retrieval as the data is cached within the object.
+
 AUTHOR
     Ivan Bessarabov, `<ivan@bessarabov.ru>'
+
+CONTRIBUTORS
+    Evgeniy Kosov `<evgeniy@kosov.su>'
 
 BUGS
     Please report any bugs or feature requests to `bug-weightbot-api at

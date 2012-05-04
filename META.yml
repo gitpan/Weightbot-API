@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Weightbot-API
-version:            0.01
+version:            0.02
 abstract:           Get Weightbot iPhone app data from weightbot.com
 author:
     - Ivan Bessarabov <ivan@bessarabov.ru>
@@ -12,6 +12,7 @@ build_requires:
     ExtUtils::MakeMaker:  0
 requires:
     Class::Date:     0
+    File::Slurp:     0
     Test::More:      0
     WWW::Mechanize:  0
 no_index:
