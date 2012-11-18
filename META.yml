@@ -1,7 +1,7 @@
 --- #YAML:1.0
 name:               Weightbot-API
-version:            0.02
-abstract:           Get Weightbot iPhone app data from weightbot.com
+version:            0.03
+abstract:           get Weightbot iPhone app data from weightbot.com
 author:
     - Ivan Bessarabov <ivan@bessarabov.ru>
 license:            perl

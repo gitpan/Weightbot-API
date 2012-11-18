@@ -3,22 +3,22 @@ package Weightbot::API;
 use warnings;
 use strict;
 
+use Carp;
 use WWW::Mechanize;
 use Class::Date qw(date);
 use File::Slurp;
 
 =head1 NAME
 
-Weightbot::API - Get Weightbot iPhone app data from weightbot.com
+Weightbot::API - get Weightbot iPhone app data from weightbot.com
 
 =head1 VERSION
 
-Version 0.01
+Version 0.03
 
 =cut
 
-our $VERSION = '0.02';
-
+our $VERSION = '0.03';
 
 =head1 SYNOPSIS
 
@@ -88,8 +88,8 @@ Optionally you can specify 'site' with some custom site url (default is
 sub new {
     my ($class, $self) = @_;
 
-    die 'No email specified, stopped' unless $self->{email};
-    die 'No password specified, stopped' unless $self->{password};
+    croak 'No email specified, stopped' unless $self->{email};
+    croak 'No password specified, stopped' unless $self->{password};
 
     $self->{site} ||= 'https://weightbot.com';
 
@@ -188,11 +188,11 @@ sub data {
 
             if ($prev_date) {
                 if ($d < $prev_date) {
-                    die "Date '$d' is earlier than '$prev_date', stopped";
+                    croak "Date '$d' is earlier than '$prev_date', stopped";
                 }
 
                 my $expected_date = $prev_date + '1D';
-                while ($d != $expected_date) {
+                while ("$d" ne "$expected_date") {
                     push @$result, {
                         date => "$expected_date",
                         kg => '',
@@ -266,7 +266,7 @@ sub _get_data_if_needed {
         );
 
         if ($mech->content !~ /^date, kilograms, pounds\n/) {
-            die "Recieved incorrect data, stopped"
+            croak "Recieved incorrect data, stopped"
         }
 
         $self->{raw_data} = $mech->content;
