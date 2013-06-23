@@ -1,13 +1,11 @@
 Changes
-lib/Weightbot/API.pm
-Makefile.PL
+LICENSE
 MANIFEST
-README
-t/00-load.t
-t/boilerplate.t
-t/manifest.t
+META.yml
+Makefile.PL
+README.md
 TODO
-t/pod-coverage.t
-t/pod.t
+dist.ini
+lib/Weightbot/API.pm
+t/00-load.t
 t/weightbot-api-data.t
-META.yml                                 Module meta-data (added by MakeMaker)

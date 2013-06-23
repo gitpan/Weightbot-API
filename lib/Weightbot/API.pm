@@ -1,4 +1,9 @@
 package Weightbot::API;
+{
+  $Weightbot::API::VERSION = '0.04';
+}
+
+# ABSTRACT: get Weightbot iPhone app data from weightbot.com
 
 use warnings;
 use strict;
@@ -8,17 +13,144 @@ use WWW::Mechanize;
 use Class::Date qw(date);
 use File::Slurp;
 
+
+sub new {
+    my ($class, $self) = @_;
+
+    croak 'No email specified, stopped' unless $self->{email};
+    croak 'No password specified, stopped' unless $self->{password};
+
+    $self->{site} ||= 'https://weightbot.com';
+
+    bless($self, $class);
+    return $self;
+}
+
+
+sub raw_data {
+    my ($self) = @_;
+
+    $self->_get_data_if_needed;
+
+    return $self->{raw_data};
+}
+
+
+sub data {
+    my ($self) = @_;
+
+    $self->_get_data_if_needed;
+
+    unless ($self->{data}) {
+        my $result;
+
+        my $n = 1;
+        my $prev_date;
+
+        local $Class::Date::DATE_FORMAT="%Y-%m-%d";
+
+        foreach my $line (split '\n', $self->{raw_data}) {
+            next if $line =~ /^date, kilograms, pounds$/;
+            my ($d, $k, $p) = split /\s*,\s*/, $line;
+
+            $d = date($d);
+
+            if ($prev_date) {
+                if ($d < $prev_date) {
+                    croak "Date '$d' is earlier than '$prev_date', stopped";
+                }
+
+                my $expected_date = $prev_date + '1D';
+                while ("$d" ne "$expected_date") {
+                    push @$result, {
+                        date => "$expected_date",
+                        kg => '',
+                        lb => '',
+                        n => $n,
+                    };
+                    $expected_date += '1D';
+                    $n++;
+                }
+
+            }
+
+            push @$result, {
+                date => "$d",
+                kg => $k,
+                lb => $p,
+                n => $n,
+            };
+            $prev_date = $d;
+            $n++;
+        }
+        $self->{data} = $result;
+    }
+
+    return $self->{data};
+}
+
+
+sub _get_data_if_needed {
+    my ($self) = @_;
+
+    my $cache_filename;
+
+    if ($self->{use_cache_file}) {
+        $cache_filename
+            = defined($self->{cache_file})
+            ? $self->{cache_file}
+            : '/tmp/weightbot.data';
+
+        if (-e $cache_filename) {
+            $self->{raw_data} = read_file($cache_filename);
+        }
+    }
+
+    unless ($self->{raw_data}) {
+        my $mech = WWW::Mechanize->new(
+            agent => "Weightbot::API/$Weightbot::API::VERSION"
+        );
+
+        $mech->get( $self->{site} . '/account/login');
+
+        $mech->submit_form(
+            form_number => 1,
+            fields      => {
+                email     => $self->{email},
+                password  => $self->{password},
+            }
+        );
+
+        $mech->submit_form(
+            form_number => 1,
+        );
+
+        if ($mech->content !~ /^date, kilograms, pounds\n/) {
+            croak "Recieved incorrect data, stopped"
+        }
+
+        $self->{raw_data} = $mech->content;
+    }
+
+    if ($self->{use_cache_file}) {
+        write_file($cache_filename, $self->{raw_data});
+    }
+}
+
+
+1;
+
+__END__
+
+=pod
+
 =head1 NAME
 
 Weightbot::API - get Weightbot iPhone app data from weightbot.com
 
 =head1 VERSION
 
-Version 0.03
-
-=cut
-
-our $VERSION = '0.03';
+version 0.04
 
 =head1 SYNOPSIS
 
@@ -83,20 +215,6 @@ Optionally you can specify 'site' with some custom site url (default is
         password => '******',
     });
 
-=cut
-
-sub new {
-    my ($class, $self) = @_;
-
-    croak 'No email specified, stopped' unless $self->{email};
-    croak 'No password specified, stopped' unless $self->{password};
-
-    $self->{site} ||= 'https://weightbot.com';
-
-    bless($self, $class);
-    return $self;
-}
-
 =head2 raw_data
 
 Returns the weight records in the format as they are stored on the site.
@@ -110,16 +228,6 @@ Here is an example:
 
 Any subsequent call to this method will not result in actual data retrieval as
 the data is cached within the object.
-
-=cut
-
-sub raw_data {
-    my ($self) = @_;
-
-    $self->_get_data_if_needed;
-
-    return $self->{raw_data};
-}
 
 =head2 data
 
@@ -165,121 +273,14 @@ An example for the data show in raw_data() method:
 Any subsequent call to this method will not result in actual data retrieval as
 the data is cached within the object.
 
-=cut
-
-sub data {
-    my ($self) = @_;
-
-    $self->_get_data_if_needed;
-
-    unless ($self->{data}) {
-        my $result;
-
-        my $n = 1;
-        my $prev_date;
-
-        local $Class::Date::DATE_FORMAT="%Y-%m-%d";
-
-        foreach my $line (split '\n', $self->{raw_data}) {
-            next if $line =~ /^date, kilograms, pounds$/;
-            my ($d, $k, $p) = split /\s*,\s*/, $line;
-
-            $d = date($d);
-
-            if ($prev_date) {
-                if ($d < $prev_date) {
-                    croak "Date '$d' is earlier than '$prev_date', stopped";
-                }
-
-                my $expected_date = $prev_date + '1D';
-                while ("$d" ne "$expected_date") {
-                    push @$result, {
-                        date => "$expected_date",
-                        kg => '',
-                        lb => '',
-                        n => $n,
-                    };
-                    $expected_date += '1D';
-                    $n++;
-                }
-
-            }
-
-            push @$result, {
-                date => "$d",
-                kg => $k,
-                lb => $p,
-                n => $n,
-            };
-            $prev_date = $d;
-            $n++;
-        }
-        $self->{data} = $result;
-    }
-
-    return $self->{data};
-}
-
 =begin comment _get_data_if_needed
 
 This is a private method that is executed in raw_data() and data(). It checks
 if the object already has the data from the site. If not the site is asked
 for the data, witch is stored in the object.
 
+
 =end comment
-
-=cut
-
-sub _get_data_if_needed {
-    my ($self) = @_;
-
-    my $cache_filename;
-
-    if ($self->{use_cache_file}) {
-        $cache_filename
-            = defined($self->{cache_file})
-            ? $self->{cache_file}
-            : '/tmp/weightbot.data';
-
-        if (-e $cache_filename) {
-            $self->{raw_data} = read_file($cache_filename);
-        }
-    }
-
-    unless ($self->{raw_data}) {
-        my $mech = WWW::Mechanize->new(
-            agent => "Weightbot::API/$VERSION"
-        );
-
-        $mech->get( $self->{site} . '/account/login');
-
-        $mech->submit_form(
-            form_number => 1,
-            fields      => {
-                email     => $self->{email},
-                password  => $self->{password},
-            }
-        );
-
-        $mech->submit_form(
-            form_number => 1,
-        );
-
-        if ($mech->content !~ /^date, kilograms, pounds\n/) {
-            croak "Recieved incorrect data, stopped"
-        }
-
-        $self->{raw_data} = $mech->content;
-    }
-
-    if ($self->{use_cache_file}) {
-        write_file($cache_filename, $self->{raw_data});
-    }
-}
-
-=head1 AUTHOR
-
-Ivan Bessarabov, C<< <ivan@bessarabov.ru> >>
 
 =head1 CONTRIBUTORS
 
@@ -296,50 +297,15 @@ You can also submit a bug or a feature request on GitHub.
 
 The source code for this module is hosted on GitHub http://github.com/bessarabov/Weightbot-API
 
-=head1 SUPPORT
+=head1 AUTHOR
 
-You can find documentation for this module with the perldoc command.
+Ivan Bessarabov <ivan@bessarabov.ru>
 
-    perldoc Weightbot::API
+=head1 COPYRIGHT AND LICENSE
 
+This software is copyright (c) 2011 by Ivan Bessarabov.
 
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Weightbot-API>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Weightbot-API>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Weightbot-API>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Weightbot-API/>
-
-=back
-
-
-=head1 ACKNOWLEDGEMENTS
-
-
-=head1 LICENSE AND COPYRIGHT
-
-Copyright 2011 Ivan Bessarabov.
-
-This program is free software; you can redistribute it and/or modify it
-under the terms of either: the GNU General Public License as published
-by the Free Software Foundation; or the Artistic License.
-
-See http://dev.perl.org/licenses/ for more information.
-
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
-
-1; # End of Weightbot::API
