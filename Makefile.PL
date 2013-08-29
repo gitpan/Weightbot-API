@@ -23,7 +23,6 @@ my %WriteMakefileArgs = (
     "Carp" => 0,
     "Class::Date" => 0,
     "File::Slurp" => 0,
-    "IO::Socket::SSL" => 0,
     "WWW::Mechanize" => 0,
     "strict" => 0,
     "warnings" => 0
@@ -31,7 +30,7 @@ my %WriteMakefileArgs = (
   "TEST_REQUIRES" => {
     "Test::More" => 0
   },
-  "VERSION" => "1.0.0",
+  "VERSION" => "1.1.0",
   "test" => {
     "TESTS" => "t/*.t"
   }

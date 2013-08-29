@@ -1,6 +1,6 @@
 package Weightbot::API;
 {
-  $Weightbot::API::VERSION = '1.0.0';
+  $Weightbot::API::VERSION = '1.1.0';
 }
 
 # ABSTRACT: get Weightbot iPhone app data from weightbot.com
@@ -12,7 +12,6 @@ use Carp;
 use WWW::Mechanize;
 use Class::Date qw(date);
 use File::Slurp;
-use IO::Socket::SSL qw();
 
 
 sub new {
@@ -110,10 +109,6 @@ sub _get_data_if_needed {
     unless ($self->{raw_data}) {
         my $mech = WWW::Mechanize->new(
             agent => "Weightbot::API/$Weightbot::API::VERSION",
-            ssl_opts => {
-                SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE,
-                verify_hostname => 0,
-            },
         );
 
         $mech->get( $self->{site} . '/account/login');
@@ -155,7 +150,7 @@ Weightbot::API - get Weightbot iPhone app data from weightbot.com
 
 =head1 VERSION
 
-version 1.0.0
+version 1.1.0
 
 =head1 SYNOPSIS
 
